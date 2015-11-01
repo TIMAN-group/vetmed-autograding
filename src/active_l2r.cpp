@@ -30,8 +30,36 @@
 
 using namespace meta;
 
+std::size_t pair_to_id(std::size_t i, std::size_t j, std::size_t n)
+{
+    return i * (n - 1) - i * (i - 1) / 2 + j - 1 - i;
+}
+
+std::pair<std::size_t, std::size_t> id_to_pair(std::size_t idx, std::size_t n)
+{
+    // do it a stupid way, doesn't matter
+    auto rng = util::range<std::size_t>(1, n - 1);
+    auto it = std::upper_bound(rng.begin(), rng.end(), idx,
+                               [&](std::size_t val, std::size_t elem)
+                               {
+                                   return val < pair_to_id(elem, elem + 1, n);
+                               });
+    auto i = *it - 1;
+
+    rng = util::range<std::size_t>(i + 1, n - 1);
+    auto jit = std::upper_bound(rng.begin(), rng.end(), idx,
+                                [&](std::size_t val, std::size_t elem)
+                                {
+                                    return val < pair_to_id(i, elem, n);
+                                });
+    auto j = *jit - 1;
+
+    return {i, j};
+}
+
 int main(int argc, char** argv)
 {
+    logging::set_cerr_logging();
     if (argc < 2)
     {
         std::cerr << "Usage: " << argv[0] << " config.toml" << std::endl;
@@ -46,6 +74,7 @@ int main(int argc, char** argv)
     auto max_train_size = static_cast<std::size_t>(
         al_config->get_as<int64_t>("max-train-size").value_or(1000));
 
+    std::cout << "num instances: " << f_idx->num_docs() << std::endl;
     auto doc_rng = util::range(0_did, doc_id{f_idx->num_docs() - 1});
 
     // load the dataset in as a regression dataset
@@ -106,8 +135,8 @@ int main(int argc, char** argv)
                                         bdv.begin() + num_seeds};
 
     printing::progress progress{" > Learning: ", bdv.size() - 1};
-    std::ofstream results{"results-random.csv"};
-    results << "training-size,gamma,tau-b,NDPM\n";
+    std::ofstream results{"results.csv"};
+    results << "training-size,num-distinct,NDPM\n";
     while (train.size() < bdv.size() && train.size() < max_train_size)
     {
         progress(train.size());
@@ -124,9 +153,20 @@ int main(int argc, char** argv)
                            return svm.predict(inst.weights);
                        });
 
+        std::unordered_set<std::size_t> used;
+        for (const auto& inst : train)
+        {
+            std::size_t x;
+            std::size_t y;
+            std::tie(x, y) = id_to_pair(inst.id, reg_dset.size());
+
+            used.insert(x);
+            used.insert(y);
+        }
+
         // compute rank correlation measures
         index::rank_correlation corr{system_scores, reference_scores};
-        results << train.size() << "," << corr.gamma() << "," << corr.tau_b()
+        results << train.size() << "," << used.size()
                 << "," << corr.ndpm() << "\n";
 
         auto test = bdv - train;

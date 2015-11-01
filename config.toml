@@ -97,4 +97,9 @@ binary-file-prefix = "english-sentences-"
 
 [active-learning]
 num-seeds = 10
-max-train-size = 1000
+#max-train-size = 1000
+max-train-size = 150
+
+[active-learning-assign]
+num-seeds = 5
+max-train-size = 106

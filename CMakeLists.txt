@@ -14,3 +14,6 @@ target_link_libraries(stats cpptoml meta-util)
 
 add_executable(active-l2r src/active_l2r.cpp)
 target_link_libraries(active-l2r cpptoml meta-regression meta-classify)
+
+add_executable(active-l2r-assign src/active_l2r_assign.cpp)
+target_link_libraries(active-l2r-assign cpptoml meta-regression meta-classify)
